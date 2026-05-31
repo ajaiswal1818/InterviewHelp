@@ -1,0 +1,12 @@
+ollama-api>=0.1.1
+chromadb>=0.4.13
+sentence-transformers>=2.2.0
+anyio>=4.3.0
+click>=8.1.7
+rich>=13.7.1
+pydantic>=2.5.3
+tqdm>=4.66.4
+
+[dev]
+pytest
+pytest-cov

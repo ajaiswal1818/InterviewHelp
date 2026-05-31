@@ -1,0 +1,2 @@
+[console_scripts]
+interview-helper = interview_helper.cli:interview_helper
