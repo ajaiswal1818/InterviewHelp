@@ -3,6 +3,7 @@
 import logging
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+from .ollama_client import OllamaClient
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,6 @@ class InterviewHelper:
         Args:
             ollama_client: Custom Ollama client instance or None for default
         """
-        from .ollama_client import OllamaClient
 
         if ollama_client is None:
             self.ollama_client = OllamaClient()

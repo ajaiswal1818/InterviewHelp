@@ -5,29 +5,33 @@ from typing import Optional
 import click
 from pathlib import Path
 
+# Initialize helper and add interview
+from .core import InterviewHelper
+from .ollama_client import OllamaClient
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
 def setup_logging():
-     pass
+    pass
 
 
 class Color:
-     RESET = "\033[0m"
-     RED = "\033[91m"
-     GREEN = "\033[92m"
-     YELLOW = "\033[93m"
-     BLUE = "\033[94m"
-     MAGENTA = "\033[95m"
-     CYAN = "\033[96m"
+    RESET = "\033[0m"
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    MAGENTA = "\033[95m"
+    CYAN = "\033[96m"
 
 
 @click.group(invoke_without_command=True)
 def interview_helper():
-       """Interview Helper - Personal Interview RAG System with ChromaDB and Ollama."""
-       pass
+        """Interview Helper - Personal Interview RAG System with ChromaDB and Ollama."""
+        pass
 
 
 @interview_helper.command()
@@ -57,10 +61,6 @@ def add(content, title, company, role, date, location, tags, model):
     }
 
     try:
-        # Initialize helper and add interview
-        from .core import InterviewHelper
-        from .ollama_client import OllamaClient
-        
         client = OllamaClient()
         helper = InterviewHelper(ollama_client=client)
         

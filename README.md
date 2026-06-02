@@ -59,9 +59,9 @@ interview-helper add \
   --role "Software Engineer - L4" \
   --date 2026-05-15 \
   --location "Mountain View, CA" \
-  "The interview process had multiple rounds including coding assessments, 
-   system design discussions about scalable systems, and behavioral questions 
-   about my past projects. The technical team was particularly interested in 
+  "The interview process had multiple rounds including coding assessments, \
+   system design discussions about scalable systems, and behavioral questions \
+   about my past projects. The technical team was particularly interested in \
    my experience with distributed systems..."
 ```
 
