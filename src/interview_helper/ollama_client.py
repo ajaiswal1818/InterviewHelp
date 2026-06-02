@@ -45,7 +45,7 @@ class OllamaClient:
                 f"{self.ollama_url}/api/generate",
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=120
+                timeout=1200
             )
 
             response.raise_for_status()

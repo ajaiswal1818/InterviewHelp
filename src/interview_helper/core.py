@@ -107,7 +107,8 @@ class InterviewHelper:
         try:
             from sentence_transformers import SentenceTransformer
 
-            model = SentenceTransformer('all-MiniLM-L6-v2')
+            local_model_path = "./models/local_all-MiniLM-L6-v2"
+            model = SentenceTransformer(local_model_path)
             embedding = model.encode([text])
             return embedding[0].tolist() if hasattr(embedding[0], 'tolist') else list(embedding[0])
         except Exception as e:
@@ -187,7 +188,7 @@ class InterviewHelper:
 Question: {question}"""
 
         logger.info("Generating response with LLM")
-
+        logger.info(f"User prompt for LLM:\n{user_prompt}")
         try:
             # Generate response using Ollama
             result = self.ollama_client.generate(prompt=user_prompt, model="qwen3.5:4b-mlx")

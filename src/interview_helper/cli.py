@@ -21,6 +21,7 @@ class Color:
      YELLOW = "\033[93m"
      BLUE = "\033[94m"
      MAGENTA = "\033[95m"
+     CYAN = "\033[96m"
 
 
 @click.group(invoke_without_command=True)
@@ -144,9 +145,12 @@ def ask(question):
 Question: {' '.join(question)}"""
 
         print(f"\n{Color.CYAN}Generating answer... (this may take a few seconds){Color.RESET}")
-
+        # ---------  Testing   -----------------
+        logger.info(f"User prompt for LLM:\n{user_prompt}")
+        return
+        # ---------------------------------------
         # Generate response
-        result = client.generate(prompt=user_prompt, model=model)
+        result = client.generate(prompt=user_prompt, model='qwen3.5:4b-mlx')
         answer = result.get("response", "No answer available")
 
         # Display answer

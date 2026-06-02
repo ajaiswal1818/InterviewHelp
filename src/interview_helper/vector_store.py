@@ -65,7 +65,7 @@ class VectorStore:
             self.collection.add(
                 ids=ids,
                 embeddings=embeddings,
-                metadatas=metadata_dicts
+                metadatas=metadata_dicts,
             )
 
             logger.info(f"Successfully added {len(ids)} documents")
@@ -95,11 +95,13 @@ class VectorStore:
         logger.info(f"Querying vector store (top_k={top_k})")
 
         try:
+            query_embeddings=[query_vector],
+            where_clause = where if where else None
             results = self.collection.query(
                 query_embeddings=[query_vector],
-                where=where or {},
+                where=where_clause,
                 include=["documents", "metadatas"],
-                limit=top_k,
+                n_results=top_k,
             )
 
             # Structure the results
