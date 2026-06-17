@@ -182,10 +182,8 @@ class InterviewHelper:
          )
 
         user_prompt = f"""Context retrieved from interview database:
-
-{results.documents[0].get('text', '')[:1000] if results.documents else 'No context available'}
-
-Question: {question}"""
+                        {results.documents[0].get('text', '')[:1000] if results.documents else 'No context available'}
+                        Question: {question}"""
 
         logger.info("Generating response with LLM")
         logger.info(f"User prompt for LLM:\n{user_prompt}")
