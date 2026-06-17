@@ -1,5 +1,6 @@
 build/
 chroma_db/
+src/interview_helper/__pycache__/
 *.pyc
 *.pyo
 *.pyd
