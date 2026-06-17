@@ -1,10 +1,17 @@
 """Vector store implementation using ChromaDB."""
 
 import logging
+from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+from dotenv import load_dotenv
+import os
 
 
 logger = logging.getLogger(__name__)
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class VectorStore:
@@ -20,9 +27,13 @@ class VectorStore:
             collection_name: Name of the ChromaDB collection
         """
         import chromadb
+        import os
+
+        # Load ChromaDB path from environment variable with fallback to default
+        chroma_db_path = Path(os.getenv("CHROMA_DB_PATH", "./chroma_db")).resolve()
 
         self.collection_name = collection_name
-        self.client = chromadb.PersistentClient(path="./chroma_db")
+        self.client = chromadb.PersistentClient(path=str(chroma_db_path))
         self.collection = self.client.get_or_create_collection(
             name=self.collection_name,
             metadata={"description": "Interview content and metadata"}

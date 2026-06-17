@@ -74,7 +74,7 @@ class InterviewHelper:
         ids = []
 
         for i, doc in enumerate(documents):
-            embedding = self._generate_em.bedding(doc["text"])
+            embedding = self._generate_embedding(doc["text"])
             if embedding:
                 embeddings.append(embedding)
             ids.append(str(i))
