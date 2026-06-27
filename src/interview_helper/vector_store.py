@@ -1,10 +1,17 @@
 """Vector store implementation using ChromaDB."""
 
 import logging
+from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+from dotenv import load_dotenv
+import os
 
 
 logger = logging.getLogger(__name__)
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class VectorStore:
@@ -15,26 +22,28 @@ class VectorStore:
 
     def __init__(self, collection_name: str = "interviews"):
         """Initialize the vector store.
-
-        Args:
-            collection_name: Name of the ChromaDB collection
+            Args:
+                collection_name: Name of the ChromaDB collection
         """
         import chromadb
 
+        # Load ChromaDB path from environment variable with fallback to default
+        chroma_db_path = Path(os.getenv("CHROMA_DB_PATH", "./chroma_db")).resolve()
+
         self.collection_name = collection_name
-        self.client = chromadb.PersistentClient(path="./chroma_db")
+        self.client = chromadb.PersistentClient(path=str(chroma_db_path))
         self.collection = self.client.get_or_create_collection(
             name=self.collection_name,
             metadata={"description": "Interview content and metadata"}
-        )
-        logger.info(f"VectorStore initialized with collection: {self.collection_name}")
+         )
+        logger.info(f"VectorStore initialized with collection: {self.collection_name} at {chroma_db_path}")
 
     def add_documents(
         self,
         documents: List[Dict[str, Any]],
         embeddings: List[List[float]],
         metadatas: List[Dict] = None,
-    ) -> List[str]:
+     ) -> List[str]:
         """Add documents to the vector store.
 
         Args:
@@ -54,19 +63,19 @@ class VectorStore:
             ids = []
             metadata_dicts = []
 
-            # Prepare embeddings and metadata
+             # Prepare embeddings and metadata
             for i, (doc, embedding, meta) in enumerate(zip(documents, embeddings, metadatas)):
                 ids.append(str(i))
                 metadata_dicts.append(meta)
 
             logger.info(f"Adding {len(ids)} documents with embeddings")
 
-            # Add to collection
+             # Add to collection
             self.collection.add(
                 ids=ids,
                 embeddings=embeddings,
                 metadatas=metadata_dicts,
-            )
+             )
 
             logger.info(f"Successfully added {len(ids)} documents")
 
@@ -81,7 +90,7 @@ class VectorStore:
         query_vector: List[float],
         where: Dict[str, Any] = None,
         top_k: int = 5,
-    ) -> List[Dict]:
+     ) -> List[Dict]:
         """Query the vector store for similar documents.
 
         Args:
@@ -102,9 +111,9 @@ class VectorStore:
                 where=where_clause,
                 include=["documents", "metadatas"],
                 n_results=top_k,
-            )
+             )
 
-            # Structure the results
+             # Structure the results
             matches = []
             if results and len(results) > 0:
                 documents = results["documents"][0] if "documents" in results else []
@@ -138,9 +147,9 @@ class VectorStore:
             results = self.collection.get(
                 limit=limit,
                 include=["documents", "metadatas"],
-            )
+             )
 
-            # Structure the results
+             # Structure the results
             matches = []
             if results and len(results) > 0:
                 documents = results.get("documents", [])
