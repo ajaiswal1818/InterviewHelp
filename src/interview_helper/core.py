@@ -1,12 +1,17 @@
 """Core InterviewHelper class - orchestrates the RAG pipeline."""
 
 import logging
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
-from .ollama_client import OllamaClient
+from .llm import LLMClient, create_llm_client
 
 
 logger = logging.getLogger(__name__)
+
+# Local embedding model shipped with the project, resolved relative to this
+# file so it works regardless of the current working directory.
+LOCAL_MODEL_PATH = Path(__file__).resolve().parents[2] / "models" / "local_all-MiniLM-L6-v2"
 
 
 @dataclass
@@ -28,18 +33,27 @@ class InterviewHelper:
          >>> answer = helper.ask("What were my technical strengths?")
     """
 
-    def __init__(self, ollama_client: Any = None):
-        """Initialize InterviewHelper with optional custom Ollama client.
+    def __init__(self, llm_client: Optional[LLMClient] = None, ollama_client: Any = None):
+        """Initialize InterviewHelper with an optional custom LLM client.
 
         Args:
-            ollama_client: Custom Ollama client instance or None for default
+            llm_client: Any :class:`LLMClient` (Ollama, MLX, or custom). If
+                None, one is built from configuration via ``create_llm_client``
+                (default provider: mlx).
+            ollama_client: Deprecated alias for ``llm_client``, kept for
+                backwards compatibility.
         """
+        client = llm_client or ollama_client
+        self.llm_client = client if client is not None else create_llm_client()
+        logger.info(
+            f"InterviewHelper initialized with provider: "
+            f"{getattr(self.llm_client, 'provider_name', 'custom')}"
+        )
 
-        if ollama_client is None:
-            self.ollama_client = OllamaClient()
-        else:
-            self.ollama_client = ollama_client
-        logger.info("InterviewHelper initialized")
+    @property
+    def ollama_client(self) -> LLMClient:
+        """Deprecated alias for :attr:`llm_client`."""
+        return self.llm_client
 
     def add_interview(self, content: str, metadata: Dict[str, Any], chunk_size: int = 500) -> List[str]:
         """Add a new interview to the vector database.
@@ -69,31 +83,53 @@ class InterviewHelper:
         documents = data_loader.load()
         logger.info(f"Created {len(documents)} document chunks")
 
-        # Generate embeddings for all chunks
+        # Generate embeddings, keeping documents and embeddings aligned by
+        # dropping any chunk whose embedding could not be generated.
+        kept_documents = []
         embeddings = []
-        ids = []
 
-        for i, doc in enumerate(documents):
+        for doc in documents:
             embedding = self._generate_embedding(doc["text"])
             if embedding:
+                kept_documents.append(doc)
                 embeddings.append(embedding)
-            ids.append(str(i))
 
         logger.info(f"Generated {len(embeddings)} embeddings")
+
+        if not embeddings:
+            logger.error("No embeddings were generated; nothing to store")
+            return []
 
         # Add documents to vector store
         from .vector_store import VectorStore
 
         collection = VectorStore()
         added_docs = collection.add_documents(
-            documents=documents,
+            documents=kept_documents,
             embeddings=embeddings,
-            metadatas=[doc["metadata"] for doc in documents]
+            metadatas=[doc["metadata"] for doc in kept_documents]
         )
 
         logger.info(f"Added {len(added_docs)} documents to vector store")
 
         return added_docs
+
+    _embedding_model = None
+
+    @classmethod
+    def _get_embedding_model(cls):
+        """Load (and cache) the sentence-transformers embedding model.
+
+        Uses the local model bundled with the project when available, and
+        falls back to downloading ``all-MiniLM-L6-v2`` from Hugging Face.
+        """
+        if cls._embedding_model is None:
+            from sentence_transformers import SentenceTransformer
+
+            model_ref = str(LOCAL_MODEL_PATH) if LOCAL_MODEL_PATH.exists() else "all-MiniLM-L6-v2"
+            logger.info(f"Loading embedding model from: {model_ref}")
+            cls._embedding_model = SentenceTransformer(model_ref)
+        return cls._embedding_model
 
     def _generate_embedding(self, text: str) -> Optional[Any]:
         """Generate embedding for a text using sentence-transformers.
@@ -105,10 +141,7 @@ class InterviewHelper:
             List of floats representing the embedding or None on error
         """
         try:
-            from sentence_transformers import SentenceTransformer
-
-            local_model_path = "./models/local_all-MiniLM-L6-v2"
-            model = SentenceTransformer(local_model_path)
+            model = self._get_embedding_model()
             embedding = model.encode([text])
             return embedding[0].tolist() if hasattr(embedding[0], 'tolist') else list(embedding[0])
         except Exception as e:
@@ -162,8 +195,6 @@ class InterviewHelper:
         Returns:
             Answer generated by the LLM
         """
-        from .ollama_client import OllamaClient
-
         logger.info(f"Asking question: {question}")
 
         # Perform search for context
@@ -181,15 +212,19 @@ class InterviewHelper:
              "Be concise, helpful, and cite specific details from the context."
          )
 
-        user_prompt = f"""Context retrieved from interview database:
-                        {results.documents[0].get('text', '')[:1000] if results.documents else 'No context available'}
-                        Question: {question}"""
+        context = results.documents[0].get('text', '') if results.documents else 'No context available'
+        prompt = f"""{system_prompt}
+
+Context retrieved from interview database:
+{context[:1000]}
+
+Question: {question}"""
 
         logger.info("Generating response with LLM")
-        logger.info(f"User prompt for LLM:\n{user_prompt}")
+        logger.info(f"Prompt for LLM:\n{prompt}")
         try:
-            # Generate response using Ollama
-            result = self.ollama_client.generate(prompt=user_prompt, model="qwen3.5:4b-mlx")
+            # Generate using the configured provider's default model
+            result = self.llm_client.generate(prompt=prompt)
             return result.get("response", "No answer available")
         except Exception as e:
             logger.error(f"Failed to generate response: {e}")

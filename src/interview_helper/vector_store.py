@@ -38,6 +38,26 @@ class VectorStore:
          )
         logger.info(f"VectorStore initialized with collection: {self.collection_name} at {chroma_db_path}")
 
+    @staticmethod
+    def _sanitize_metadata(meta: Dict[str, Any]) -> Dict[str, Any]:
+        """Coerce metadata into ChromaDB-compatible scalar values.
+
+        ChromaDB only accepts str/int/float/bool metadata values, so list
+        values (e.g. ``tags``) are joined into a comma-separated string and
+        ``None`` values are dropped.
+        """
+        clean: Dict[str, Any] = {}
+        for key, value in (meta or {}).items():
+            if value is None:
+                continue
+            if isinstance(value, (list, tuple)):
+                clean[key] = ", ".join(str(v) for v in value)
+            elif isinstance(value, (str, int, float, bool)):
+                clean[key] = value
+            else:
+                clean[key] = str(value)
+        return clean
+
     def add_documents(
         self,
         documents: List[Dict[str, Any]],
@@ -61,18 +81,24 @@ class VectorStore:
 
         try:
             ids = []
+            texts = []
             metadata_dicts = []
 
-             # Prepare embeddings and metadata
+             # Prepare document text, embeddings and metadata. Use unique IDs
+             # so that adding a new interview does not overwrite existing ones.
+            import uuid
+
             for i, (doc, embedding, meta) in enumerate(zip(documents, embeddings, metadatas)):
-                ids.append(str(i))
-                metadata_dicts.append(meta)
+                ids.append(uuid.uuid4().hex)
+                texts.append(doc.get("text", "") if isinstance(doc, dict) else str(doc))
+                metadata_dicts.append(self._sanitize_metadata(meta))
 
             logger.info(f"Adding {len(ids)} documents with embeddings")
 
-             # Add to collection
+             # Add to collection (documents must be passed so text is retrievable)
             self.collection.add(
                 ids=ids,
+                documents=texts,
                 embeddings=embeddings,
                 metadatas=metadata_dicts,
              )
@@ -104,7 +130,6 @@ class VectorStore:
         logger.info(f"Querying vector store (top_k={top_k})")
 
         try:
-            query_embeddings=[query_vector],
             where_clause = where if where else None
             results = self.collection.query(
                 query_embeddings=[query_vector],
@@ -120,8 +145,8 @@ class VectorStore:
                 metadatas = results["metadatas"][0] if "metadatas" in results else []
 
                 for doc, meta in zip(documents, metadatas):
-                    match = {"text": doc} if isinstance(doc, str) else {}
-                    match.update(meta)
+                    match = {"text": doc if isinstance(doc, str) else ""}
+                    match["metadata"] = meta or {}
                     matches.append(match)
 
             logger.info(f"Found {len(matches)} matches for query")
@@ -156,8 +181,7 @@ class VectorStore:
                 metadatas = results.get("metadatas", [])
 
                 for doc, meta in zip(documents, metadatas):
-                    match = {"text": doc}
-                    match.update(meta)
+                    match = {"text": doc if isinstance(doc, str) else "", "metadata": meta or {}}
                     matches.append(match)
 
             logger.info(f"Retrieved {len(matches)} documents")

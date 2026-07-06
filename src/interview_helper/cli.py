@@ -7,7 +7,7 @@ from pathlib import Path
 
 # Initialize helper and add interview
 from .core import InterviewHelper
-from .ollama_client import OllamaClient
+from .llm import create_llm_client, available_providers
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,23 +28,48 @@ class Color:
     CYAN = "\033[96m"
 
 
+def _build_helper(provider=None, model=None):
+    """Build an InterviewHelper backed by the selected local LLM provider."""
+    client = create_llm_client(provider=provider, model=model)
+    return InterviewHelper(llm_client=client)
+
+
+def provider_options(f):
+    """Shared --provider/--model options for commands that talk to the LLM."""
+    f = click.option(
+        '--model', '-m', default=None,
+        help='Model name (defaults to the provider default or LLM_MODEL env)'
+    )(f)
+    f = click.option(
+        '--provider', '-p', default=None,
+        type=click.Choice(available_providers(), case_sensitive=False),
+        help='Local LLM provider (default: LLM_PROVIDER env, else mlx)'
+    )(f)
+    return f
+
+
 @click.group(invoke_without_command=True)
-def interview_helper():
-        """Interview Helper - Personal Interview RAG System with ChromaDB and Ollama."""
-        pass
+@click.pass_context
+def interview_helper(ctx):
+        """Interview Helper - Personal Interview RAG System (ChromaDB + pluggable local LLM)."""
+        if ctx.invoked_subcommand is None:
+            click.echo(ctx.get_help())
 
 
 @interview_helper.command()
 @click.option('--content', '-c', required=True, prompt=False, help='Interview content')
-@click.option('--title', '-t', required=True, prompt=False, help='Interview title')
+@click.option('--title', '-t', default=None, prompt=False, help='Interview title (defaults to company/role)')
 @click.option('--company', default=None, help='Company name')
 @click.option('--role', default=None, help='Role applied for')
 @click.option('--date', '-d', default="2026-05-29", help='Date of interview (YYYY-MM-DD)')
 @click.option('--location', default=None, help='Interview location')
 @click.option('--tags', '-tag', multiple=True, default=(), help='Tags for the interview')
-@click.option('--model', '-m', default="llama3", help='Ollama model to use')
-def add(content, title, company, role, date, location, tags, model):
+@provider_options
+def add(content, title, company, role, date, location, tags, provider, model):
     """Add a new interview to your database."""
+    # Derive a title when none is supplied
+    if not title:
+        title = " - ".join([p for p in (company, role) if p]) or "Untitled Interview"
     logger.info(f"Adding interview with title: {title}")
 
     # Convert tags to list
@@ -61,9 +86,8 @@ def add(content, title, company, role, date, location, tags, model):
     }
 
     try:
-        client = OllamaClient()
-        helper = InterviewHelper(ollama_client=client)
-        
+        helper = _build_helper(provider, model)
+
         added = helper.add_interview(content, metadata)
         print(f"\n{Color.GREEN}Successfully added {len(added)} chunks to your interview database!{Color.RESET}")
     except Exception as e:
@@ -73,18 +97,14 @@ def add(content, title, company, role, date, location, tags, model):
 
 @interview_helper.command()
 @click.argument('query', nargs=-1, required=True)
-@click.option('--model', '-m', default="llama3", help='Ollama model to use')
-def search(query, model):
+@provider_options
+def search(query, provider, model):
     """Search through your interviews."""
     logger.info(f"Searching for: {' '.join(query)}")
 
     try:
-        from .core import InterviewHelper
-        from .ollama_client import OllamaClient
-        
-        client = OllamaClient()
-        helper = InterviewHelper(ollama_client=client)
-        
+        helper = _build_helper(provider, model)
+
         results = helper.search(" ".join(query))
         
         if not results.documents:
@@ -102,8 +122,8 @@ def search(query, model):
             print(f"   From: {metadata.get('company', 'Unknown')} - {metadata.get('title', '')}")
             print(f"   Date: {metadata.get('date', 'Unknown')}")
             if "tags" in metadata:
-                tags = metadata["tags"] if isinstance(metadata["tags"], list) else metadata.get("tags", [])
-                tag_str = ", ".join(tags)
+                tags = metadata["tags"]
+                tag_str = tags if isinstance(tags, str) else ", ".join(tags)
                 print(f"   Tags: {Color.MAGENTA}{tag_str}{Color.RESET}")
 
         print(f"\n{Color.CYAN}--- Use 'interview-helper ask' to get detailed answers about these topics.{Color.RESET}\n")
@@ -114,18 +134,18 @@ def search(query, model):
 
 @interview_helper.command()
 @click.argument('question', nargs=-1, required=True)
-def ask(question):
+@click.option('--company', default=None, help='Filter context by company name')
+@provider_options
+def ask(question, company, provider, model):
     """Ask questions about your interviews."""
     logger.info(f"Asking question: {' '.join(question)}")
 
     try:
-        from .core import InterviewHelper
-        from .ollama_client import OllamaClient
-        
-        client = OllamaClient()
-        helper = InterviewHelper(ollama_client=client)
-        
-        results = helper.search(" ".join(question))
+        helper = _build_helper(provider, model)
+        client = helper.llm_client
+
+        where_filter = {"company": company} if company else None
+        results = helper.search(" ".join(question), where_clause=where_filter)
         
         if not results.documents:
             print(f"\n{Color.YELLOW}No relevant context found for: {' '.join(question)}")
@@ -138,19 +158,19 @@ def ask(question):
             "Be concise, helpful, and cite specific details from the context."
         )
 
-        user_prompt = f"""Context retrieved from interview database:
+        context = results.documents[0].get('text', '') if results.documents else 'No context available'
+        user_prompt = f"""{system_prompt}
 
-{results.documents[0].get('text', '')[:1000] if results.documents else 'No context available'}
+Context retrieved from interview database:
+
+{context[:1000]}
 
 Question: {' '.join(question)}"""
 
         print(f"\n{Color.CYAN}Generating answer... (this may take a few seconds){Color.RESET}")
-        # ---------  Testing   -----------------
         logger.info(f"User prompt for LLM:\n{user_prompt}")
-        return
-        # ---------------------------------------
-        # Generate response
-        result = client.generate(prompt=user_prompt, model='qwen3.5:4b-mlx')
+        # Generate response (model=None falls back to the provider default)
+        result = client.generate(prompt=user_prompt, model=model)
         answer = result.get("response", "No answer available")
 
         # Display answer
@@ -165,22 +185,18 @@ Question: {' '.join(question)}"""
         raise
 
 
-@interview_helper.command()
+@interview_helper.command(name="list")
 def list_all():
     """List all interviews in your database."""
     logger.info("Listing all interviews")
 
     try:
-        from .core import InterviewHelper
-        from .ollama_client import OllamaClient
-        
-        client = OllamaClient()
-        helper = InterviewHelper(ollama_client=client)
-        
+        helper = _build_helper()
+
         interviews = helper.get_all_interviews()
         
         if not interviews:
-            print("\n{Color.YELLOW}Your database is empty!{Color.RESET}")
+            print(f"\n{Color.YELLOW}Your database is empty!{Color.RESET}")
             return
 
         # Display interviews sorted by date
@@ -194,12 +210,12 @@ def list_all():
 
             print(f"{Color.GREEN}{i+1}. {title}{Color.RESET}")
             print(f"   Company: {Color.BLUE}{company}{Color.RESET}")
-            print(f"   Role: {'{'.join(role) if role else 'N/A'}")
+            print(f"   Role: {role if role else 'N/A'}")
             print(f"   Date: {date}")
 
             tags = metadata.get('tags', [])
             if tags:
-                tag_str = ", ".join(tags)
+                tag_str = tags if isinstance(tags, str) else ", ".join(tags)
                 print(f"   Tags: {Color.MAGENTA}{tag_str}{Color.RESET}")
 
             print("")
