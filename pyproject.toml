@@ -20,7 +20,8 @@ dependencies = [
     "click>=8.1.7",
     "rich>=13.7.1",
     "pydantic>=2.5.3",
-    "tqdm>=4.66.4"
+    "tqdm>=4.66.4",
+    "pypdf>=4.0.0"
 ]
 
 [project.optional-dependencies]

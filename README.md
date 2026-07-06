@@ -1,228 +1,243 @@
 # Interview Helper
 
-Personal Interview Assistant with RAG (Retrieval Augmented Generation) powered by Ollama and ChromaDB.
+A private, **local-first RAG assistant** for your documents. Ingest text, Markdown, or PDFs, search them semantically, and ask natural-language questions — all running on your own machine with no data leaving your computer.
 
-## 🎯 Overview
+Built with **ChromaDB** for vector search, **sentence-transformers** for embeddings, and a **pluggable local LLM layer** that works with [mlx_lm](https://github.com/ml-explore/mlx-lm) (Apple Silicon), [Ollama](https://ollama.ai), or any backend you register.
 
-Interview Helper is a personal interview assistant that stores, organizes, and retrieves your interview information using AI technology. It uses:
-
-- **Ollama** - For LLM inference (works with local models like llama3, mistral, etc.)
-- **ChromaDB** - For vector storage and semantic search
-- **RAG Architecture** - Combines retrieved context with AI for smart answers
-
-## ✨ Features
-
-### Core Functionality
-- 📝 **Store Interviews** - Save interview experiences with metadata
-- 🔍 **Search & Retrieve** - Find specific topics, questions, or discussions
-- 📊 **Pattern Analysis** - Identify trends across interviews
-- 💬 **Ask Questions** - Query your stored data using natural language
-
-### Key Capabilities
-1. **Chronological Storage**: All interviews stored with date, company, role, and location info
-2. **Topic Search**: Find content by subject matter (technical questions, HR topics, etc.)
-3. **Pattern Recognition**: See how your performance evolves across interviews
-4. **Natural Language Queries**: Ask "How did I do in technical rounds?" and get insights
-
-## 🚀 Quick Start
-
-### Prerequisites
-```bash
-# Install Ollama (https://ollama.ai)
-# Pull a model
-ollama pull llama3  # or mistral, codellama, etc.
-```
-
-### Installation
-```bash
-pip install .
-```
-
-### Basic Usage
-```bash
-# Add an interview
-interview-helper add "Your interview experience goes here" --company TechCorp --role "Senior Engineer" --date 2026-05-29 --tags "technical,system-design"
-
-# Search for topics
-interview-helper search "behavioral questions"
-
-# Ask questions about your interviews
-interview-helper ask "What are the common technical questions I faced?"
-```
-
-## 📖 Usage Examples
-
-### Adding an Interview
-```bash
-interview-helper add \
-  --company Google \
-  --role "Software Engineer - L4" \
-  --date 2026-05-15 \
-  --location "Mountain View, CA" \
-  "The interview process had multiple rounds including coding assessments, \
-   system design discussions about scalable systems, and behavioral questions \
-   about my past projects. The technical team was particularly interested in \
-   my experience with distributed systems..."
-```
-
-### Searching Content
-```bash
-# Find all interviews at specific company
-interview-helper search --company Google
-
-# Search by tags
-interview-helper search --tags "system-design"
-
-# Full-text search for topics
-interview-helper search "algorithm questions data structures"
-```
-
-### Pattern Analysis
-```bash
-# Get insights about your interview performance
-interview-helper analyze --topic "technical"
-
-# Compare across companies
-interview-helper compare companies
-
-# Trend analysis
-interview-helper trend --metric "difficulty"
-```
-
-## 🛠️ Architecture
-
-### Tech Stack
-- **Backend**: Python with async/await support
-- **Vector Database**: ChromaDB (local file-based)
-- **LLM Interface**: Ollama API
-- **Data Structures**: Pydantic models for type safety
-- **CLI Framework**: Rich CLI
-
-### Core Components
-```
-┌─────────────────┐     ┌──────────────────┐     ┌──────────────┐
-│  CLI Interface  │────▶│ InterviewHelper  │────▶│  OllamaClient│
-│                 │     │                  │     │              │
-└─────────────────┘     ├──────────────────┘     └──────┬───────┘
-                        └───────────────┬───────────────┘
-                                         ▼
-                                   ┌──────────────┐
-                                   │  ChromaDB    │
-                                   │  (Vector DB) │
-                                   └──────────────┘
-```
-
-### Data Flow
-1. **Input**: Text + metadata → `DataLoader`
-2. **Processing**: Chunk text → `DocumentChunk`
-3. **Embedding**: Generate vectors → `OllamaClient.create_embedding()`
-4. **Storage**: Index in ChromaDB collection
-5. **Retrieval**: Query → retrieve relevant chunks → RAG generation
-
-## 📁 Project Structure
-
-```
-interview_helper/
-├── __init__.py          # Package exports
-├── config.py            # Configuration management
-├── data_loader.py       # Text processing & chunking
-├── ollama_client.py     # Ollama API client
-└── core.py              # Main InterviewHelper class
-```
-
-## ⚙️ Configuration
-
-### Environment Variables
-```bash
-# Ollama API endpoint (default: http://localhost:11434)
-export OLLAMA_URL="http://your-server:11434"
-
-# Default model to use
-export OLLAMA_MODEL="llama3"
-
-# Embedding model
-export EMBEDDING_MODEL="all-minist:v6"
-```
-
-### Custom Configuration
-```python
-from interview_helper.config import AppConfig
-
-config = AppConfig()
-config.set_ollama_url("http://localhost:11434")
-```
-
-## 🔧 Development
-
-### Setup
-```bash
-pip install -e .
-pip install -r requirements-dev.txt
-pytest
-```
-
-### Architecture Patterns Used
-- **Dependency Injection**: OllamaClient injection for easy testing
-- **Repository Pattern**: ChromaDB as vector storage repository
-- **Command/Query Segregation**: Separate input and query logic
-- **Chain of Responsibility**: Multi-step RAG pipeline
-
-## 📊 Data Structure
-
-### Interview Metadata
-```json
-{
-  "title": "Senior Software Engineer Interview",
-  "date": "2026-05-15",
-  "company": "TechCorp",
-  "role": "Staff Engineer",
-  "location": "San Francisco, CA",
-  "tags": ["technical", "system-design", "behavioral"],
-  "content": "Full interview content..."
-}
-```
-
-### Vector Chunks
-Each interview is split into semantic chunks for better retrieval:
-- ~500 characters per chunk
-- 30-char overlap between chunks
-- Tagged with metadata for filtering
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-pytest
-
-# Test with mock Ollama client
-pytest --mock-ollama
-
-# Coverage report
-pytest --cov=interview_helper
-```
-
-
-### Code Style
-- Use type hints
-- Write docstrings
-- Follow PEP 8
-- Add tests for new features
-
-## 📄 License
-
-MIT License - Feel free to use this for personal development.
-
-## 🔗 Technologies
-
-- [Ollama](https://ollama.ai) - Local LLM inference server
-- [ChromaDB](https://www.trychroma.com) - Vector database
-- [Rich](https://rich.readthedocs.io/) - Beautiful CLI output
-- [Pydantic](https://docs.pydantic.dev/) - Type validation
-
-## 🙋 Support
-
-For issues or questions, please create an issue in the repository.
+> Originally built to organize interview notes, it works as a general RAG-over-documents tool: point it at a folder of files and query them.
 
 ---
 
-**Built by Ajaiswal1818** | **Made with ❤️ for interview preparation**
+## Why this exists
+
+Most "chat with your documents" tools send your data to a cloud API. This one doesn't. Everything — embeddings, the vector store, and LLM inference — runs locally. That makes it a good fit for private or sensitive material, offline use, and anyone who wants to understand the full RAG stack end to end.
+
+## Features
+
+- **Ingest anything** — raw text, `.txt`, `.md`, or `.pdf` files, or an entire folder (recursively).
+- **Semantic search** — find relevant passages by meaning, not just keywords.
+- **Ask questions** — retrieval-augmented answers grounded in your own documents.
+- **Pluggable LLM providers** — switch between MLX and Ollama with one flag, or plug in your own client.
+- **Fully local & private** — local embedding model + local vector DB + local LLM.
+- **Metadata filtering** — scope queries by company, tags, source file, and more.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Ingest
+        A[Text / .txt / .md / .pdf<br/>or a folder] --> B[readers.py<br/>extract text]
+        B --> C[DataLoader<br/>clean + chunk]
+    end
+
+    C --> D[Embedding model<br/>sentence-transformers<br/>all-MiniLM-L6-v2]
+    D --> E[(ChromaDB<br/>vector store)]
+
+    subgraph Query
+        Q[User question] --> D2[Embed query]
+        D2 --> E
+        E -->|top-k chunks| R[Retrieved context]
+        R --> P[Prompt builder]
+        P --> L[LLM provider<br/>MLX / Ollama / custom]
+        L --> ANS[Answer]
+    end
+```
+
+The LLM provider is decoupled behind a small interface, so the retrieval pipeline never depends on a specific backend:
+
+```mermaid
+classDiagram
+    class LLMClient {
+        <<abstract>>
+        +generate(prompt, model) dict
+        +list_models() list
+    }
+    LLMClient <|-- MLXClient
+    LLMClient <|-- OllamaClient
+    LLMClient <|-- YourCustomClient
+```
+
+## Installation
+
+```bash
+# Clone, then install in editable mode
+pip install -e .
+
+# For tests
+pip install -e ".[dev]"
+```
+
+The first run downloads/loads the local embedding model (`all-MiniLM-L6-v2`). A copy is bundled under `models/` and used automatically when present.
+
+### Start a local LLM (needed for `ask`)
+
+**Option A — MLX (default, Apple Silicon):**
+
+```bash
+pip install mlx-lm
+mlx_lm.server --model mlx-community/Qwen2.5-7B-Instruct-4bit
+# serves an OpenAI-compatible API on http://localhost:8080
+```
+
+**Option B — Ollama:**
+
+```bash
+ollama serve
+ollama pull llama3
+```
+
+`search`, `list`, and ingesting documents do **not** require an LLM server — only `ask` (answer generation) does.
+
+## Quickstart
+
+```console
+$ interview-helper add --file ./notes/google-onsite.md --company Google --tags technical
+Added 6 chunks from ./notes/google-onsite.md
+
+$ interview-helper add --dir ./notes --tags interviews
+Ingested 4 file(s), 21 chunks from ./notes
+
+$ interview-helper search "system design and caching"
+Found 3 relevant chunks:
+
+📄 Result 1
+   From: Meta - meta-loop
+   Date: 2026-05-15
+   Tags: interviews
+
+$ interview-helper ask "What system design topics came up?" --company Meta
+Generating answer... (this may take a few seconds)
+============================================================
+Answer:
+    Across your Meta notes, system design focused on designing a
+    news feed: fan-out on write vs. read, caching hot content, and
+    pagination strategies for the timeline.
+============================================================
+
+$ interview-helper list
+1. meta-loop
+   Company: Meta
+   Date: 2026-05-15
+   Tags: interviews
+```
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `add --content "..."` | Add raw text |
+| `add --file PATH` | Ingest a single `.txt` / `.md` / `.pdf` |
+| `add --dir PATH` | Ingest every supported file in a folder (recursive) |
+| `search QUERY...` | Semantic search over stored content |
+| `ask QUESTION... [--company NAME]` | RAG answer grounded in retrieved context |
+| `list` | List all stored documents |
+| `clear [--yes]` | Delete everything (asks to confirm) |
+
+Every command that talks to the LLM accepts `--provider/-p` (`mlx` or `ollama`) and `--model/-m`.
+
+```bash
+# Use Ollama for one command
+interview-helper ask "How did the coding rounds go?" -p ollama -m llama3
+
+# Metadata-scoped add and search
+interview-helper add -c "Amazon loop: leadership principles + graph BFS." --company Amazon --tags behavioral,coding
+interview-helper search "graph traversal"
+```
+
+## Providers & configuration
+
+Provider selection precedence: `--provider` flag → `LLM_PROVIDER` env → default (`mlx`).
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `LLM_PROVIDER` | `mlx` or `ollama` | `mlx` |
+| `LLM_BASE_URL` | Override the server URL | provider default |
+| `LLM_MODEL` | Override the default model | provider default |
+| `CHROMA_DB_PATH` | Vector store location | `./chroma_db` |
+
+Provider defaults:
+
+| Provider | URL | Default model |
+| --- | --- | --- |
+| `mlx` | `http://localhost:8080` | `mlx-community/Qwen2.5-7B-Instruct-4bit` |
+| `ollama` | `http://localhost:11434` | `llama3` |
+
+## Extending
+
+### Plug in a custom LLM backend
+
+Any class implementing the `LLMClient` interface can be registered and selected by name:
+
+```python
+from interview_helper.llm import LLMClient, register_provider, create_llm_client
+
+class MyClient(LLMClient):
+    provider_name = "myllm"
+
+    def __init__(self, base_url="http://localhost:9000", default_model="my-model"):
+        super().__init__(base_url, default_model)
+
+    def generate(self, prompt, model=None):
+        # call your server here
+        return {"response": "..."}
+
+register_provider("myllm", MyClient)
+
+client = create_llm_client("myllm")
+```
+
+### Use it as a library
+
+```python
+from interview_helper import InterviewHelper
+
+helper = InterviewHelper()                       # default provider (mlx)
+helper.add_document("report.pdf", metadata={"tags": ["q1"]})
+helper.add_directory("./docs")
+answer = helper.ask("What were the main risks flagged?")
+print(answer)
+```
+
+## Project structure
+
+```
+src/interview_helper/
+├── __init__.py         # Package exports
+├── cli.py              # Click-based CLI
+├── core.py             # InterviewHelper orchestrator (RAG pipeline)
+├── data_loader.py      # Text cleaning + chunking
+├── readers.py          # Text/Markdown/PDF extraction + folder discovery
+├── vector_store.py     # ChromaDB wrapper (add / query / clear)
+└── llm/
+    ├── base.py         # LLMClient abstract interface
+    ├── mlx_client.py   # mlx_lm (OpenAI-compatible) provider
+    ├── ollama_client.py# Ollama provider
+    └── factory.py      # Provider registry + create_llm_client()
+```
+
+## How RAG works here
+
+1. **Ingest** — files are read (`readers.py`), cleaned, and split into ~500-char overlapping chunks.
+2. **Embed** — each chunk is embedded locally with `all-MiniLM-L6-v2`.
+3. **Store** — chunk text + embedding + metadata go into ChromaDB.
+4. **Retrieve** — a query is embedded and matched against the store; the top-k chunks come back, optionally filtered by metadata.
+5. **Generate** — retrieved context + the question are sent to the local LLM, which answers grounded in your documents.
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest -v
+pytest --cov=interview_helper
+```
+
+## Limitations
+
+- **Local services required** — `ask` needs a running MLX or Ollama server; embeddings need the local model.
+- **Scanned PDFs** — image-only PDFs yield no text (no OCR yet); text-based PDFs work.
+- **Single-node** — ChromaDB runs locally; not intended for multi-user or large-scale deployments as-is.
+- **English-optimized** — the default embedding model works best on English text.
+
+## License
+
+MIT

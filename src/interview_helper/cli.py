@@ -57,27 +57,29 @@ def interview_helper(ctx):
 
 
 @interview_helper.command()
-@click.option('--content', '-c', required=True, prompt=False, help='Interview content')
-@click.option('--title', '-t', default=None, prompt=False, help='Interview title (defaults to company/role)')
+@click.option('--content', '-c', default=None, help='Text content to add')
+@click.option('--file', '-f', 'file_path',
+              type=click.Path(exists=True, dir_okay=False),
+              default=None, help='Path to a .txt/.md/.pdf file to ingest')
+@click.option('--dir', 'dir_path',
+              type=click.Path(exists=True, file_okay=False),
+              default=None, help='Directory of documents to ingest (recursive)')
+@click.option('--title', '-t', default=None, help='Title (defaults to company/role or filename)')
 @click.option('--company', default=None, help='Company name')
 @click.option('--role', default=None, help='Role applied for')
 @click.option('--date', '-d', default="2026-05-29", help='Date of interview (YYYY-MM-DD)')
 @click.option('--location', default=None, help='Interview location')
-@click.option('--tags', '-tag', multiple=True, default=(), help='Tags for the interview')
+@click.option('--tags', '-tag', multiple=True, default=(), help='Tags for the document')
 @provider_options
-def add(content, title, company, role, date, location, tags, provider, model):
-    """Add a new interview to your database."""
-    # Derive a title when none is supplied
-    if not title:
-        title = " - ".join([p for p in (company, role) if p]) or "Untitled Interview"
-    logger.info(f"Adding interview with title: {title}")
+def add(content, file_path, dir_path, title, company, role, date, location, tags, provider, model):
+    """Add content to your database from text (--content), a file (--file), or a folder (--dir)."""
+    # Exactly one input source is required
+    sources = [s for s in (content, file_path, dir_path) if s]
+    if len(sources) != 1:
+        raise click.UsageError("Provide exactly one of --content, --file, or --dir.")
 
-    # Convert tags to list
     tag_list = list(tags)
-
-    # Create metadata dictionary
-    metadata = {
-        "title": title,
+    base_metadata = {
         "date": date,
         "company": company or "",
         "role": role or "",
@@ -88,10 +90,26 @@ def add(content, title, company, role, date, location, tags, provider, model):
     try:
         helper = _build_helper(provider, model)
 
-        added = helper.add_interview(content, metadata)
-        print(f"\n{Color.GREEN}Successfully added {len(added)} chunks to your interview database!{Color.RESET}")
+        if dir_path:
+            logger.info(f"Ingesting directory: {dir_path}")
+            results = helper.add_directory(dir_path, metadata=base_metadata)
+            total = sum(len(v) for v in results.values())
+            print(f"\n{Color.GREEN}Ingested {len(results)} file(s), "
+                  f"{total} chunks from {dir_path}{Color.RESET}")
+        elif file_path:
+            logger.info(f"Ingesting file: {file_path}")
+            added = helper.add_document(file_path, metadata=base_metadata)
+            print(f"\n{Color.GREEN}Added {len(added)} chunks from {file_path}{Color.RESET}")
+        else:
+            if not title:
+                title = " - ".join([p for p in (company, role) if p]) or "Untitled Interview"
+            logger.info(f"Adding interview with title: {title}")
+            metadata = {"title": title, **base_metadata}
+            added = helper.add_interview(content, metadata)
+            print(f"\n{Color.GREEN}Successfully added {len(added)} chunks "
+                  f"to your interview database!{Color.RESET}")
     except Exception as e:
-        print(f"\n{Color.RED}Error adding interview: {e}{Color.RESET}")
+        print(f"\n{Color.RED}Error adding content: {e}{Color.RESET}")
         raise
 
 

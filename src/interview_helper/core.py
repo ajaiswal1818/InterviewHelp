@@ -55,25 +55,33 @@ class InterviewHelper:
         """Deprecated alias for :attr:`llm_client`."""
         return self.llm_client
 
-    def add_interview(self, content: str, metadata: Dict[str, Any], chunk_size: int = 500) -> List[str]:
-        """Add a new interview to the vector database.
+    def add_interview(
+        self,
+        content: str,
+        metadata: Dict[str, Any],
+        chunk_size: int = 500,
+        document_type: str = "interview",
+    ) -> List[str]:
+        """Add raw text content to the vector database.
 
         Args:
-            content: Interview text content
-            metadata: Interview metadata (date, company, role, tags, etc.)
+            content: Text content to store
+            metadata: Metadata (date, company, role, tags, source, etc.)
             chunk_size: Size of chunks in characters
+            document_type: Type label stored in metadata (e.g. "interview",
+                "document")
 
         Returns:
             List of added document IDs
         """
         from .data_loader import DataLoader
 
-        logger.info(f"Adding interview with metadata: {metadata}")
+        logger.info(f"Adding {document_type} with metadata: {metadata}")
 
         # Initialize data loader
         data_loader = DataLoader(
             text=content,
-            document_type="interview",
+            document_type=document_type,
             metadata=metadata,
             chunk_size=chunk_size,
             chunk_overlap=30
@@ -113,6 +121,70 @@ class InterviewHelper:
         logger.info(f"Added {len(added_docs)} documents to vector store")
 
         return added_docs
+
+    def add_document(
+        self,
+        path: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+        chunk_size: int = 500,
+    ) -> List[str]:
+        """Ingest a single file (.txt, .md, or .pdf) into the vector database.
+
+        Args:
+            path: Path to the document file.
+            metadata: Extra metadata to attach; ``source`` and ``title`` are
+                filled in from the filename when not provided.
+            chunk_size: Size of chunks in characters.
+
+        Returns:
+            List of added document IDs.
+        """
+        from .readers import extract_text
+
+        path = Path(path)
+        text = extract_text(path)
+        if not text.strip():
+            logger.warning(f"No text extracted from {path}; skipping")
+            return []
+
+        meta = {"source": path.name, "title": path.stem}
+        meta.update(metadata or {})
+        return self.add_interview(
+            text, meta, chunk_size=chunk_size, document_type="document"
+        )
+
+    def add_directory(
+        self,
+        path: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+        chunk_size: int = 500,
+    ) -> Dict[str, List[str]]:
+        """Ingest every supported file in a directory (recursively).
+
+        Args:
+            path: Directory to scan for .txt/.md/.pdf files.
+            metadata: Extra metadata applied to every file; per-file ``source``
+                and ``title`` are added automatically.
+            chunk_size: Size of chunks in characters.
+
+        Returns:
+            Mapping of file path -> list of added document IDs.
+        """
+        from .readers import iter_documents
+
+        results: Dict[str, List[str]] = {}
+        for file_path, text in iter_documents(path):
+            if not text.strip():
+                logger.warning(f"No text extracted from {file_path}; skipping")
+                continue
+            meta = {"source": file_path.name, "title": file_path.stem}
+            meta.update(metadata or {})
+            results[str(file_path)] = self.add_interview(
+                text, meta, chunk_size=chunk_size, document_type="document"
+            )
+
+        logger.info(f"Ingested {len(results)} file(s) from {path}")
+        return results
 
     _embedding_model = None
 
