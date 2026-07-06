@@ -38,6 +38,24 @@ class VectorStore:
          )
         logger.info(f"VectorStore initialized with collection: {self.collection_name} at {chroma_db_path}")
 
+    def clear(self) -> None:
+        """Remove all documents from the collection.
+
+        ChromaDB rejects ``delete(where={})``, so the collection is dropped and
+        recreated, which reliably removes every stored document.
+        """
+        logger.info(f"Clearing collection: {self.collection_name}")
+        try:
+            self.client.delete_collection(name=self.collection_name)
+        except Exception as e:
+            # A missing collection is fine; nothing to clear.
+            logger.warning(f"delete_collection during clear: {e}")
+
+        self.collection = self.client.get_or_create_collection(
+            name=self.collection_name,
+            metadata={"description": "Interview content and metadata"},
+        )
+
     @staticmethod
     def _sanitize_metadata(meta: Dict[str, Any]) -> Dict[str, Any]:
         """Coerce metadata into ChromaDB-compatible scalar values.

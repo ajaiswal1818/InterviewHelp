@@ -224,5 +224,29 @@ def list_all():
         raise
 
 
+@interview_helper.command(name="clear")
+@click.option('--yes', '-y', is_flag=True, default=False, help='Skip the confirmation prompt')
+def clear(yes):
+    """Delete all interviews from your database."""
+    logger.info("Clearing all interviews")
+
+    if not yes:
+        confirm = click.confirm(
+            "This will permanently delete ALL stored interviews. Continue?",
+            default=False,
+        )
+        if not confirm:
+            print(f"\n{Color.YELLOW}Aborted. Nothing was deleted.{Color.RESET}")
+            return
+
+    try:
+        helper = _build_helper()
+        helper.clear_all_interviews()
+        print(f"\n{Color.GREEN}Cleared all interviews from your database.{Color.RESET}")
+    except Exception as e:
+        print(f"\n{Color.RED}Error clearing interviews: {e}{Color.RESET}")
+        raise
+
+
 if __name__ == "__main__":
     interview_helper()

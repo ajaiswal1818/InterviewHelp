@@ -249,3 +249,20 @@ Question: {question}"""
         except Exception as e:
             logger.error(f"Failed to retrieve all interviews: {e}")
             return []
+
+    def clear_all_interviews(self) -> None:
+        """Remove all interviews from the vector database.
+
+        Resets the collection so the database starts fresh.
+        """
+        from .vector_store import VectorStore
+
+        logger.info("Clearing all interviews from vector store")
+
+        collection = VectorStore()
+        try:
+            collection.clear()
+            logger.info("Successfully cleared all interviews from database")
+        except Exception as e:
+            logger.error(f"Failed to clear interviews: {e}")
+            raise
