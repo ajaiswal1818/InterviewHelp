@@ -6,3 +6,12 @@ src/interview_helper/__pycache__/
 *.pyd
 *.log
 models/
+
+# Local editor/agent settings and OS cruft
+.claude/
+.DS_Store
+
+# Project decision / planning docs (kept local, README stays tracked)
+CLAUDE.md
+TASKS.md
+benchmarking.md
