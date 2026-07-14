@@ -12,4 +12,10 @@ src/interview_helper/config.py
 src/interview_helper/core.py
 src/interview_helper/data_loader.py
 src/interview_helper/ollama_client.py
+src/interview_helper/readers.py
 src/interview_helper/vector_store.py
+src/interview_helper/llm/__init__.py
+src/interview_helper/llm/base.py
+src/interview_helper/llm/factory.py
+src/interview_helper/llm/mlx_client.py
+src/interview_helper/llm/ollama_client.py

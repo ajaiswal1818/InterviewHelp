@@ -26,7 +26,7 @@ Most "chat with your documents" tools send your data to a cloud API. This one do
 ```mermaid
 flowchart LR
     subgraph Ingest
-        A[Text / .txt / .md / .pdf<br/>or a folder] --> B[readers.py<br/>extract text]
+        A[Text / .txt / .md / .pdf<br/>or a folder] --> B[readers.py<br/>ext`ract text]
         B --> C[DataLoader<br/>clean + chunk]
     end
 
@@ -67,7 +67,25 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
-The first run downloads/loads the local embedding model (`all-MiniLM-L6-v2`). A copy is bundled under `models/` and used automatically when present.
+### Embedding model (local & offline)
+
+Embeddings use the `all-MiniLM-L6-v2` sentence-transformers model. To run fully offline (no HuggingFace download at query time), download it once into `models/` and point `.env` at it:
+
+```bash
+# Download the embedding model into ./models/local_all-MiniLM-L6-v2
+python -c "from sentence_transformers import SentenceTransformer; \
+SentenceTransformer('all-MiniLM-L6-v2').save('models/local_all-MiniLM-L6-v2')"
+```
+
+Then set the path in `.env`:
+
+```bash
+EMBEDDING_MODEL=./models/local_all-MiniLM-L6-v2
+```
+
+Model resolution precedence is: **`EMBEDDING_MODEL` env → bundled `models/local_all-MiniLM-L6-v2` → download `all-MiniLM-L6-v2` from HuggingFace**. So even without the env var, a copy under `models/` is used automatically when present. `EMBEDDING_MODEL` also accepts a HuggingFace model id if you'd rather pull a different model.
+
+> Note: the embedding model is separate from the `ask` LLM (MLX/Ollama). Changing `EMBEDDING_MODEL` to a *different* model means existing vectors are incompatible — `clear` and re-ingest in that case. Switching only the *source* of the same model (HF → local) needs no re-ingest.
 
 ### Start a local LLM (needed for `ask`)
 
@@ -153,6 +171,7 @@ Provider selection precedence: `--provider` flag → `LLM_PROVIDER` env → defa
 | `LLM_PROVIDER` | `mlx` or `ollama` | `mlx` |
 | `LLM_BASE_URL` | Override the server URL | provider default |
 | `LLM_MODEL` | Override the default model | provider default |
+| `EMBEDDING_MODEL` | Local path or HF id for the embedding model | bundled `models/` copy, else `all-MiniLM-L6-v2` |
 | `CHROMA_DB_PATH` | Vector store location | `./chroma_db` |
 
 Provider defaults:

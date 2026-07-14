@@ -15,3 +15,5 @@ models/
 CLAUDE.md
 TASKS.md
 benchmarking.md
+
+.venv

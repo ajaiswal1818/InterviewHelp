@@ -4,8 +4,14 @@ import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+
+from dotenv import load_dotenv
+
 from .llm import LLMClient, create_llm_client
 
+# Load environment variables (e.g. EMBEDDING_MODEL) from .env early so the
+# embedding model can be routed to a local path regardless of import order.
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -196,9 +202,18 @@ class InterviewHelper:
         falls back to downloading ``all-MiniLM-L6-v2`` from Hugging Face.
         """
         if cls._embedding_model is None:
+            import os
             from sentence_transformers import SentenceTransformer
 
-            model_ref = str(LOCAL_MODEL_PATH) if LOCAL_MODEL_PATH.exists() else "all-MiniLM-L6-v2"
+            # Precedence: EMBEDDING_MODEL env (local path or HF id)
+            #   -> bundled local model -> download all-MiniLM-L6-v2 from HF.
+            env_ref = os.getenv("EMBEDDING_MODEL", "").strip()
+            if env_ref:
+                model_ref = str(Path(env_ref).resolve()) if Path(env_ref).exists() else env_ref
+            elif LOCAL_MODEL_PATH.exists():
+                model_ref = str(LOCAL_MODEL_PATH)
+            else:
+                model_ref = "all-MiniLM-L6-v2"
             logger.info(f"Loading embedding model from: {model_ref}")
             cls._embedding_model = SentenceTransformer(model_ref)
         return cls._embedding_model
